@@ -276,7 +276,7 @@ export default function App() {
 
   useEffect(() => {
     let alive = true;
-    api('/health').then(() => { if (alive) { setApiStatus('online'); setApiMessage('FastAPI DSA scheduler connected'); } }).catch(() => { if (alive) { setApiStatus('offline'); setApiMessage('Backend required for adaptive scheduling'); } });
+    api('/api/health').then(() => { if (alive) { setApiStatus('online'); setApiMessage('FastAPI DSA scheduler connected'); } }).catch(() => { if (alive) { setApiStatus('offline'); setApiMessage('Backend required for adaptive scheduling'); } });
     return () => { alive = false; };
   }, []);
 
@@ -388,7 +388,7 @@ export default function App() {
     </aside>
     {menuOpen&&<button className="scrim" aria-label="Close menu" onClick={()=>setMenuOpen(false)}/>}
     <main className="main-content">
-      <header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="workspace-navigation" aria-label="Open navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>Simulation console</strong></div><div className="topbar-actions">{apiStatus==='online'?<span className="api-status online"><i/>FastAPI connected</span>:<button className={`api-status ${apiStatus}`} onClick={()=>api('/health').then(()=>{setApiStatus('online');setApiMessage('FastAPI DSA scheduler connected');}).catch(()=>{setApiStatus('offline');setApiMessage('Backend unavailable · adaptive mode paused safely');})} aria-label="Retry FastAPI connection"><i/>{apiStatus==='checking'?'Checking API':'Retry API'}</button>}<span className="avatar" aria-label="Academic project">DSA</span></div></header>
+      <header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="workspace-navigation" aria-label="Open navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>Simulation console</strong></div><div className="topbar-actions">{apiStatus==='online'?<span className="api-status online"><i/>FastAPI connected</span>:<button className={`api-status ${apiStatus}`} onClick={()=>api('/api/health').then(()=>{setApiStatus('online');setApiMessage('FastAPI DSA scheduler connected');}).catch(()=>{setApiStatus('offline');setApiMessage('Backend unavailable · adaptive mode paused safely');})} aria-label="Retry FastAPI connection"><i/>{apiStatus==='checking'?'Checking API':'Retry API'}</button>}<span className="avatar" aria-label="Academic project">DSA</span></div></header>
       <div className="page-wrap">
         <section id="console" className="hero-section"><div><div className="eyebrow"><span className="eyebrow-line"/> SMART MOBILITY LAB <span className="eyebrow-dot">·</span> DSA SIMULATION</div><h1>Intersection <em>control room</em></h1><p className="hero-copy">See how queues, waiting time, and safe signal transitions shape traffic flow.</p></div><div className="run-state" role="status" aria-live="polite"><span className={`state-pulse ${snapshot.status==='running'?'is-running':''}`}/><div><strong>{snapshot.decisionPending?'Calculating next phase…':snapshot.status==='running'?'Simulation running':snapshot.status==='error'?'Simulation paused safely':snapshot.status==='ready'?'Ready to simulate':'Simulation paused'}</strong><small>{snapshot.warning||apiMessage}</small></div></div></section>
 

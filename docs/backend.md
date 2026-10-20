@@ -8,7 +8,7 @@ FastAPI validates traffic snapshots and experiment settings, calls the DSA sched
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Service health |
+| GET | `/api/health` | Service health (also available at `/health` locally) |
 | GET | `/api/scenarios` | Demand presets |
 | POST | `/api/schedule` | Select phase and green duration from road queues and maximum waits |
 | POST | `/api/experiment` | Run fixed/adaptive comparison with a shared seeded schedule |
@@ -29,4 +29,4 @@ python -m uvicorn main:app --app-dir backend --reload --port 8000
 python -m pytest backend\tests -q
 ```
 
-The Vite development server proxies `/api` and `/health` to port 8000. FastAPI's interactive schema is available at `/docs`.
+The Vite development server proxies `/api` and `/health` to port 8000. The app uses `/api/health` so its health check is routed to the FastAPI function in production. FastAPI's interactive schema is available at `/docs` locally.

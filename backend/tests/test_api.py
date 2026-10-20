@@ -4,11 +4,12 @@ from pydantic import ValidationError
 from app.models.schemas import ExperimentRequest, ScheduleRequest
 from app.routes.experiment import experiment
 from app.routes.schedule import schedule
-from main import health
+from main import app, health
 
 
 def test_health_and_schedule_handler() -> None:
     assert health()["status"] == "ok"
+    assert "/api/health" in app.openapi()["paths"]
     payload = ScheduleRequest(
         north={"queue": 9, "maxWait": 10}, south={"queue": 6, "maxWait": 5},
         east={"queue": 2, "maxWait": 2}, west={"queue": 1, "maxWait": 1},

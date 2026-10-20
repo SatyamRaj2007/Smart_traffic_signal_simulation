@@ -34,7 +34,8 @@ app.include_router(schedule_router)
 app.include_router(experiment_router)
 
 
-@app.get("/health", tags=["system"])
+@app.get("/health", tags=["system"], include_in_schema=False)
+@app.get("/api/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "signal-lab-api", "version": app.version}
 

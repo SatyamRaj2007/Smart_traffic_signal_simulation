@@ -100,7 +100,7 @@ Here, `V` is the active vehicle count and `P` is the number of candidate phases.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Service health |
+| `GET` | `/api/health` | Service health (also available at `/health` locally) |
 | `GET` | `/api/scenarios` | Demand presets |
 | `POST` | `/api/schedule` | Select a phase and green duration from approach queues and waits |
 | `POST` | `/api/experiment` | Compare fixed and adaptive control on a shared seeded schedule |
