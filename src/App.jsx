@@ -164,6 +164,7 @@ function SectionTitle({ eyebrow, title, note }) { return <div className="section
 
 function TrafficCanvas({ snapshot, sourceRef }) {
   const ref = useRef(null);
+  const drawRef = useRef(null);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   useEffect(() => {
@@ -181,10 +182,13 @@ function TrafficCanvas({ snapshot, sourceRef }) {
       ctx.save(); ctx.translate((box.width - w) / 2, (box.height - h) / 2); ctx.scale(scale, scale);
       ctx.fillStyle = '#e7eeea'; ctx.fillRect(0, 0, 720, 410); ctx.fillStyle = '#dae5dc';
       for (let x = 18; x < 720; x += 55) for (let y = 14; y < 410; y += 53) { if ((x > 260 && x < 475) || (y > 135 && y < 285)) continue; ctx.beginPath(); ctx.roundRect(x, y, 34, 22, 4); ctx.fill(); }
-      ctx.fillStyle = '#c8d6cc'; ctx.fillRect(0, 174, 720, 62); ctx.fillRect(329, 0, 62, 410);
+      ctx.fillStyle = '#b7c6bc'; ctx.fillRect(0, 171, 720, 68); ctx.fillRect(326, 0, 68, 410);
       ctx.fillStyle = '#49575a'; ctx.fillRect(0, 181, 720, 48); ctx.fillRect(336, 0, 48, 410);
+      ctx.fillStyle = '#536164'; ctx.fillRect(0, 181, 720, 3); ctx.fillRect(0, 226, 720, 3); ctx.fillRect(336, 0, 3, 410); ctx.fillRect(381, 0, 3, 410);
       ctx.setLineDash([12, 12]); ctx.strokeStyle = '#a7b1ad'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 205); ctx.lineTo(720, 205); ctx.moveTo(360, 0); ctx.lineTo(360, 410); ctx.stroke(); ctx.setLineDash([]);
-      ctx.strokeStyle = '#f3edcf'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(320, 166); ctx.lineTo(320, 244); ctx.moveTo(400, 166); ctx.lineTo(400, 244); ctx.moveTo(320, 166); ctx.lineTo(400, 166); ctx.moveTo(320, 244); ctx.lineTo(400, 244); ctx.stroke();
+      ctx.fillStyle = 'rgba(242,239,215,.9)';
+      for (let i=0;i<6;i++) { const offset=i*10; ctx.fillRect(303+offset,153,6,13); ctx.fillRect(303+offset,244,6,13); ctx.fillRect(310,166+offset,13,6); ctx.fillRect(397,166+offset,13,6); }
+      ctx.fillStyle = '#f5f1d8'; ctx.fillRect(320,166,2,78); ctx.fillRect(398,166,2,78); ctx.fillRect(320,166,80,2); ctx.fillRect(320,242,80,2);
       const current = sourceRef?.current || snapshotRef.current;
       const lamps = [{x:304,y:140,group:'NS'},{x:402,y:248,group:'NS'},{x:405,y:140,group:'EW'},{x:303,y:248,group:'EW'}];
       const aspectColors = {green:'#35c68f',yellow:'#e9a443',red:'#e06e63'};
@@ -195,16 +199,27 @@ function TrafficCanvas({ snapshot, sourceRef }) {
         else if (vehicle.direction === 'south') { x=375; y=390-vehicle.progress*370; angle=-Math.PI/2; }
         else if (vehicle.direction === 'east') { x=700-vehicle.progress*670; y=192; angle=Math.PI; }
         else { x=20+vehicle.progress*670; y=218; angle=0; }
-        ctx.save(); ctx.translate(x,y); ctx.rotate(angle); ctx.fillStyle=vehicle.color; ctx.beginPath(); ctx.roundRect(-12,-6,24,12,4); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.65)'; ctx.beginPath(); ctx.roundRect(-5,-4,8,8,2); ctx.fill(); ctx.restore();
+        ctx.save(); ctx.translate(x,y); ctx.rotate(angle); ctx.fillStyle='rgba(25,37,35,.22)'; ctx.beginPath(); ctx.roundRect(-10,-4,25,13,4); ctx.fill(); ctx.fillStyle=vehicle.color; ctx.beginPath(); ctx.roundRect(-12,-7,24,12,4); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.7)'; ctx.beginPath(); ctx.roundRect(-5,-5,8,8,2); ctx.fill(); ctx.fillStyle='rgba(34,45,45,.56)'; ctx.fillRect(6,-5,3,8); ctx.restore();
       });
       ctx.restore();
     };
+    drawRef.current = draw;
     const observer = new ResizeObserver(draw); observer.observe(canvas);
-    let frame = 0;
-    const render = () => { draw(); frame = requestAnimationFrame(render); };
-    render();
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+    draw();
+    return () => { observer.disconnect(); drawRef.current = null; };
   }, []);
+  useEffect(() => { drawRef.current?.(); }, [snapshot]);
+  useEffect(() => {
+    if (snapshot.status !== 'running') return undefined;
+    let frame = 0;
+    let lastDraw = 0;
+    const render = now => {
+      if (now - lastDraw >= 1000 / 30) { drawRef.current?.(); lastDraw = now; }
+      frame = requestAnimationFrame(render);
+    };
+    frame = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(frame);
+  }, [snapshot.status]);
   return <canvas ref={ref} className="traffic-canvas" aria-label="Canvas visualization of four-way traffic" />;
 }
 
@@ -294,7 +309,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const ids = ['console','comparison','metrics','documentation'];
+    const ids = ['console','algorithm','metrics','comparison','documentation'];
     const observer = new IntersectionObserver(entries => {
       const visible = entries.filter(entry => entry.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
       if (visible) setActiveNav(visible.target.id);
@@ -355,33 +370,33 @@ export default function App() {
       <div className="brand"><div className="brand-mark"><span className="traffic-light"><i/><i/><i/></span></div><div><b>signal<span>lab</span></b><small>TRAFFIC CONTROL SIMULATOR</small></div><button className="icon-button sidebar-close" onClick={()=>setMenuOpen(false)} aria-label="Close navigation">×</button></div>
       <div className="intersection-card"><span className="micro-label">ACTIVE INTERSECTION</span><strong>Node 104-E</strong><span><i className="live-dot"/> Four-way · Educational model</span></div>
       <div className="nav-label">WORKSPACE</div>
-      <nav className="side-nav" aria-label="Main navigation">{[['console','▦','Simulation console'],['comparison','↔','Controller comparison'],['metrics','⌁','System metrics'],['documentation','▤','Documentation & assumptions']].map(([id,icon,label])=><button key={id} className={`nav-item ${activeNav===id?'active':''}`} onClick={()=>navigate(id)}><span aria-hidden="true">{icon}</span><span>{label}</span>{activeNav===id&&<i className="nav-indicator"/>}</button>)}</nav>
+      <nav className="side-nav" aria-label="Main navigation">{[['console','▦','Simulation console'],['algorithm','⌘','Decision trace'],['metrics','⌁','System metrics'],['comparison','↔','Controller comparison'],['documentation','▤','Documentation & assumptions']].map(([id,icon,label])=><button key={id} className={`nav-item ${activeNav===id?'active':''}`} aria-current={activeNav===id?'location':undefined} onClick={()=>navigate(id)}><span aria-hidden="true">{icon}</span><span>{label}</span>{activeNav===id&&<i className="nav-indicator"/>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="model-badge"><span>MODEL</span><b>DSA SIM · 01</b><small>Educational use only</small></div><p>Not calibrated or certified for real-world traffic control.</p></div>
     </aside>
     {menuOpen&&<button className="scrim" aria-label="Close menu" onClick={()=>setMenuOpen(false)}/>}
     <main className="main-content">
       <header className="topbar"><button className="icon-button mobile-menu" onClick={()=>setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="workspace-navigation" aria-label="Open navigation">☰</button><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>Simulation console</strong></div><div className="topbar-actions">{apiStatus==='online'?<span className="api-status online"><i/>FastAPI connected</span>:<button className={`api-status ${apiStatus}`} onClick={()=>api('/health').then(()=>{setApiStatus('online');setApiMessage('FastAPI DSA scheduler connected');}).catch(()=>{setApiStatus('offline');setApiMessage('Backend unavailable · adaptive mode paused safely');})} aria-label="Retry FastAPI connection"><i/>{apiStatus==='checking'?'Checking API':'Retry API'}</button>}<span className="avatar" aria-label="Academic project">DSA</span></div></header>
       <div className="page-wrap">
-        <section id="console" className="hero-section"><div><div className="eyebrow"><span className="eyebrow-line"/> SMART MOBILITY LAB <span className="eyebrow-dot">·</span> DSA SIMULATION</div><h1>Intersection <em>control room</em></h1><p className="hero-copy">See how queues, waiting time, and safe signal transitions shape traffic flow.</p></div><div className="run-state"><span className={`state-pulse ${snapshot.status==='running'?'is-running':''}`}/><div><strong>{snapshot.decisionPending?'Calculating next phase…':snapshot.status==='running'?'Simulation running':snapshot.status==='error'?'Simulation paused safely':'Simulation paused'}</strong><small>{snapshot.warning||apiMessage}</small></div></div></section>
+        <section id="console" className="hero-section"><div><div className="eyebrow"><span className="eyebrow-line"/> SMART MOBILITY LAB <span className="eyebrow-dot">·</span> DSA SIMULATION</div><h1>Intersection <em>control room</em></h1><p className="hero-copy">See how queues, waiting time, and safe signal transitions shape traffic flow.</p></div><div className="run-state" role="status" aria-live="polite"><span className={`state-pulse ${snapshot.status==='running'?'is-running':''}`}/><div><strong>{snapshot.decisionPending?'Calculating next phase…':snapshot.status==='running'?'Simulation running':snapshot.status==='error'?'Simulation paused safely':snapshot.status==='ready'?'Ready to simulate':'Simulation paused'}</strong><small>{snapshot.warning||apiMessage}</small></div></div></section>
 
         <section className="sim-layout" aria-label="Simulation workspace">
           <div className="panel intersection-panel">
             <div className="panel-header canvas-header"><div><div className="eyebrow">LIVE ENVIRONMENT</div><h2>Node 104-E <span className="location-tag">4-WAY</span></h2></div><span className="unit-tag">SEEDED RUN · 12345</span></div>
             <div className="canvas-wrap"><TrafficCanvas snapshot={snapshot} sourceRef={visualSnapshotRef}/>{DIRECTIONS.map(direction=><div key={direction} className={`canvas-label label-${direction}`}>{direction.toUpperCase()} <span>{snapshot.queues[direction]||0} queued</span></div>)}<div className="canvas-legend"><span><i className="legend-green"/> Green</span><span><i className="legend-red"/> Red</span><span><i className="legend-car"/> Vehicle</span></div></div>
             <div className="phase-strip"><div className="phase-signal"><i className={`lamp red ${snapshot.phase.startsWith('ALL_RED')?'on':''}`}/><i className={`lamp yellow ${snapshot.phase.endsWith('YELLOW')?'on':''}`}/><i className={`lamp green ${snapshot.phase.endsWith('_GREEN')?'on':''}`}/></div><div className="phase-detail"><span className="micro-label">CANONICAL SIGNAL STATE</span><strong>{PHASE_LABELS[snapshot.phase]}</strong></div><div className="phase-timer"><b>{Math.ceil(snapshot.phaseRemaining)}<small>s</small></b><span>remaining</span></div><div className="phase-meter"><i style={{width:`${phaseProgress}%`}}/></div></div>
-            <div className="playback"><div className="playback-buttons"><button className="primary-button" onClick={start} disabled={snapshot.status==='running'}>{snapshot.status==='ready'?'▶ Start':'▶ Resume'}</button><button className="secondary-button" onClick={pause} disabled={snapshot.status!=='running'}>Ⅱ Pause</button><button className="reset-button" onClick={reset} aria-label="Reset simulation">↻</button></div><div className="speed-control"><span>SPEED</span>{[1,2,4].map(value=><button key={value} className={speed===value?'active':''} onClick={()=>setSpeed(value)}>{value}×</button>)}</div><div className="clock-readout"><b>{clock}</b><span>SIM TIME</span></div></div>
+            <div className="playback"><div className="playback-buttons"><button className="primary-button" onClick={start} disabled={snapshot.status==='running'}>{snapshot.status==='ready'?'▶ Start':'▶ Resume'}</button><button className="secondary-button" onClick={pause} disabled={snapshot.status!=='running'}>Ⅱ Pause</button><button className="reset-button" onClick={reset} aria-label="Reset simulation">↻</button></div><div className="speed-control" role="group" aria-label="Simulation speed"><span>SPEED</span>{[1,2,4].map(value=><button key={value} className={speed===value?'active':''} aria-label={`${value} times simulation speed`} aria-pressed={speed===value} onClick={()=>setSpeed(value)}>{value}×</button>)}</div><div className="clock-readout"><b>{clock}</b><span>SIM TIME</span></div></div>
           </div>
           <aside className="panel controls-panel">
             <div className="panel-header"><div><div className="eyebrow">CONTROL STRATEGY</div><h2>Signal logic</h2></div><span className="panel-index">01</span></div>
-            <div className="controller-switch" role="group" aria-label="Controller mode"><button className={controller==='adaptive'?'selected':''} disabled={snapshot.status==='running'} onClick={()=>selectController('adaptive')}><span className="switch-icon adaptive-icon">↗</span><span><b>Adaptive</b><small>FastAPI · DSA scheduler</small></span></button><button className={controller==='fixed'?'selected':''} disabled={snapshot.status==='running'} onClick={()=>selectController('fixed')}><span className="switch-icon">◷</span><span><b>Fixed time</b><small>20 sec green baseline</small></span></button></div>
+            <div className="controller-switch" role="group" aria-label="Controller mode"><button className={controller==='adaptive'?'selected':''} aria-pressed={controller==='adaptive'} disabled={snapshot.status==='running'} onClick={()=>selectController('adaptive')}><span className="switch-icon adaptive-icon">↗</span><span><b>Adaptive</b><small>FastAPI · DSA scheduler</small></span></button><button className={controller==='fixed'?'selected':''} aria-pressed={controller==='fixed'} disabled={snapshot.status==='running'} onClick={()=>selectController('fixed')}><span className="switch-icon">◷</span><span><b>Fixed time</b><small>20 sec green baseline</small></span></button></div>
             <div className="control-divider controller-divider"/><div className="control-section-head"><div><div className="eyebrow">TRAFFIC DEMAND</div><h3>Arrival rate</h3></div><span className="unit-tag">VEH / MIN · AXIS</span></div>
             {['ns','ew'].map(key=><label className="slider-row" key={key}><span><i className={`direction-dot ${key==='ns'?'ns-dot':'ew-dot'}`}/>{key==='ns'?'North / South':'East / West'}</span><b>{rates[key]}<small> veh/min</small></b><input disabled={snapshot.status==='running'} aria-label={`${key.toUpperCase()} arrival rate`} type="range" min="0" max="40" value={rates[key]} onChange={event=>setDemand(key,event.target.value)} style={{'--range':`${rates[key]/40*100}%`}}/></label>)}
-            <div className="control-divider preset-divider"/><div className="preset-heading"><span>DEMAND PRESETS</span><span className="preset-edit">{preset==='custom'?'CUSTOM':'SELECT'}</span></div><div className="preset-grid">{Object.entries(PRESETS).map(([key,item])=><button key={key} disabled={snapshot.status==='running'} className={`preset-card ${preset===key?'selected':''}`} onClick={()=>applyPreset(key)}><i className={`preset-mark ${key}`}/><span><b>{item.label}</b><small>{item.ns} / {item.ew} veh/min</small></span></button>)}</div>
+            <div className="control-divider preset-divider"/><div className="preset-heading"><span>DEMAND PRESETS</span><span className="preset-edit">{preset==='custom'?'CUSTOM':'SELECT'}</span></div><div className="preset-grid">{Object.entries(PRESETS).map(([key,item])=><button key={key} disabled={snapshot.status==='running'} className={`preset-card ${preset===key?'selected':''}`} aria-pressed={preset===key} onClick={()=>applyPreset(key)}><i className={`preset-mark ${key}`}/><span><b>{item.label}</b><small>{item.ns} / {item.ew} veh/min</small></span></button>)}</div>
             <div className="adaptive-note"><span className="spark">✳</span><p><b>{controller==='adaptive'?'Queue + oldest wait → priority':'Alternating fixed phases'}</b><br/>{controller==='adaptive'?'Scheduler decisions call FastAPI only at green boundaries.':'Both controllers share the same traffic model and safe signal transitions.'}</p></div>
           </aside>
         </section>
 
-        <section className="page-section algorithm-section"><SectionTitle eyebrow="DECISION TRACE" title="Algorithm visualizer" note="The values below are the latest response from the FastAPI scheduler."/><div className="algorithm-grid panel"><div className="algorithm-queues"><h3>Road queues · oldest wait</h3>{DIRECTIONS.map(direction=><div key={direction}><span>{direction}</span><b>{snapshot.queues[direction]||0}</b><small>{fmt(roadMaxWait(engineRef.current.roads[direction]),1)} sec</small></div>)}</div><div className="algorithm-candidates"><h3>Priority = queue + wait + fairness guard</h3>{['NS','EW'].map(phase=>{const score=snapshot.decision?.candidateScores?.[phase];return <div className="candidate-row" key={phase}><b>{phase}</b><span>Queue {fmt(score?.queueScore,0)}</span><span>Wait {fmt(score?.waitingScore,1)} · guard {fmt(score?.starvationBoost,1)}</span><strong>{fmt(score?.priority,1)}</strong></div>;})}<div className="heap-label">MAX HEAP · root has highest priority</div><div className="heap-display">{snapshot.decision?.heap?.map((item,index)=><span key={`${item.value}-${index}`} className={index===0?'heap-root':'heap-child'}>{item.value} · {fmt(item.priority,1)}</span>)||<span className="heap-child">Waiting for the first adaptive scheduling decision</span>}</div><p className="decision-line">Selected: <b>{snapshot.decision?.selectedPhase||'—'}</b><span> Green: {snapshot.decision?fmt(snapshot.decision.greenDuration,1)+' sec':'—'}</span></p></div></div></section>
+        <section id="algorithm" className="page-section algorithm-section"><SectionTitle eyebrow="DECISION TRACE" title="Algorithm visualizer" note="Follow real queue data through the scheduler to the returned signal decision."/><div className="algorithm-flow panel" aria-label="Scheduler decision pipeline"><span>Road queues</span><i aria-hidden="true">→</i><span>Phase demand</span><i aria-hidden="true">→</i><span>Priority + fairness</span><i aria-hidden="true">→</i><span>Max heap</span><i aria-hidden="true">→</i><strong>Selected phase</strong></div><div className="algorithm-grid panel"><div className="algorithm-queues"><h3>Road queues · oldest wait</h3>{DIRECTIONS.map(direction=><div key={direction}><span>{direction}</span><b>{snapshot.queues[direction]||0}</b><small>{fmt(roadMaxWait(engineRef.current.roads[direction]),1)} sec</small></div>)}</div><div className="algorithm-candidates"><h3>Priority = queue + wait + fairness guard</h3>{['NS','EW'].map(phase=>{const score=snapshot.decision?.candidateScores?.[phase];return <div className="candidate-row" key={phase}><b>{phase}</b><span>Queue {fmt(score?.queueScore,0)}</span><span>Wait {fmt(score?.waitingScore,1)} · guard {fmt(score?.starvationBoost,1)}</span><strong>{fmt(score?.priority,1)}</strong></div>;})}<div className="heap-label">MAX HEAP · root has highest priority</div><div className="heap-display">{snapshot.decision?.heap?.map((item,index)=><span key={`${item.value}-${index}`} className={index===0?'heap-root':'heap-child'}>{item.value} · {fmt(item.priority,1)}</span>)||<span className="heap-child">Waiting for the first adaptive scheduling decision</span>}</div><p className="decision-line">Selected: <b>{snapshot.decision?.selectedPhase||'—'}</b><span> Green: {snapshot.decision?fmt(snapshot.decision.greenDuration,1)+' sec':'—'}</span></p></div></div></section>
 
         <section id="metrics" className="metrics-section page-section"><SectionTitle eyebrow="LIVE TELEMETRY" title="System metrics" note="Measurements come from the simulation clock, not browser animation frames."/><div className="metric-grid">
           <MetricCard label="Vehicles waiting" value={snapshot.waiting} suffix="veh" tone="mint"/><MetricCard label="Vehicles served" value={snapshot.served} suffix="veh" tone="blue"/><MetricCard label="Average wait" value={fmt(snapshot.avgWait,1)} suffix="sec" tone="amber"/><MetricCard label="Maximum queue" value={snapshot.maxQueue} suffix="veh" tone="rose"/><MetricCard label="Average queue" value={fmt(snapshot.avgQueue,2)} suffix="veh" tone="blue"/><MetricCard label="Average travel time" value={fmt(snapshot.avgTravel,1)} suffix="sec" tone="mint"/><MetricCard label="Throughput" value={fmt(snapshot.throughput,1)} suffix="veh/min" tone="amber"/><MetricCard label="Dropped demand" value={snapshot.droppedDemand} suffix="veh" tone="rose"/>
