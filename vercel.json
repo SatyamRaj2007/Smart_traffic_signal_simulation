@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "functions": {
+    "backend/main.py": {
+      "maxDuration": 30
+    }
+  }
+}

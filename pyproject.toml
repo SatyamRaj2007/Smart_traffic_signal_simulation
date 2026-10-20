@@ -1,0 +1,8 @@
+[project]
+name = "signal-lab-api"
+version = "1.0.0"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.115,<1.0"]
+
+[tool.vercel]
+entrypoint = "backend.main:app"

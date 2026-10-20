@@ -1,0 +1,30 @@
+# JavaScript dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Python virtual environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/data/
+
+# Local environment files (keep the safe template)
+.env
+.env.*
+!.env.example
+
+# Logs, editor temporary files, and operating-system metadata
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
