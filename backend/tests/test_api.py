@@ -12,10 +12,13 @@ def test_health_and_schedule_handler() -> None:
     payload = ScheduleRequest(
         north={"queue": 9, "maxWait": 10}, south={"queue": 6, "maxWait": 5},
         east={"queue": 2, "maxWait": 2}, west={"queue": 1, "maxWait": 1},
+        currentPhase="NS_GREEN", runId=27, decisionId=5,
     )
     result = schedule(payload)
     assert result["selectedPhase"] == "NS"
     assert len(result["heap"]) == 2
+    assert result["runId"] == 27
+    assert result["decisionId"] == 5
 
 
 def test_schedule_schema_rejects_negative_queue() -> None:

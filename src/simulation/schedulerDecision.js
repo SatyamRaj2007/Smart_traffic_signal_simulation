@@ -20,3 +20,7 @@ export function applyDecisionIfCurrent(decision, isCurrent, apply) {
   apply(decision);
   return true;
 }
+
+export function matchesDecisionCorrelation(decision, runId, decisionId) {
+  return decision?.runId === runId && decision?.decisionId === decisionId;
+}

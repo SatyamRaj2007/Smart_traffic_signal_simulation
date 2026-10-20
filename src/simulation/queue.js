@@ -14,6 +14,8 @@ export class LaneQueue {
     return vehicle;
   }
   front() { return this.isEmpty() ? undefined : this.items[this.head]; }
+  rear() { return this.isEmpty() ? undefined : this.items[this.items.length - 1]; }
+  forEach(visitor) { for (let index = this.head; index < this.items.length; index += 1) visitor(this.items[index]); }
   isEmpty() { return this.head >= this.items.length; }
   get size() { return this.items.length - this.head; }
   values() { return this.items.slice(this.head); }

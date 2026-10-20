@@ -11,10 +11,11 @@ except ModuleNotFoundError:
 
 router = APIRouter(prefix="/api", tags=["experiments"])
 PRESETS = {
-    "low": {"label": "Quiet morning", "ns": 6, "ew": 8},
-    "medium": {"label": "Typical commute", "ns": 12, "ew": 28},
-    "peak": {"label": "Peak hour", "ns": 24, "ew": 30},
-    "asymmetric": {"label": "One-way surge", "ns": 6, "ew": 30},
+    "lowBalanced": {"label": "Low balanced", "ns": 8, "ew": 8},
+    "mediumBalanced": {"label": "Medium balanced", "ns": 12, "ew": 12},
+    "highBalanced": {"label": "High balanced", "ns": 28, "ew": 28},
+    "nsHeavy": {"label": "NS heavy", "ns": 32, "ew": 8},
+    "ewHeavy": {"label": "EW heavy", "ns": 8, "ew": 32},
 }
 
 

@@ -1,7 +1,7 @@
 import pytest
 
 from app.dsa.scheduler import AdaptiveScheduler, SchedulerConfig
-from app.services.experiment import make_arrival_schedule, run_comparison
+from app.services.experiment import make_arrival_schedule, run_comparison, run_controller
 
 
 def test_queue_pressure_selects_ns_and_bounded_green() -> None:
@@ -24,6 +24,36 @@ def test_long_wait_is_in_priority_and_can_win() -> None:
     assert decision["candidateScores"]["EW"]["waitingScore"] == 20
 
 
+@pytest.mark.parametrize(("wait", "urgent"), [(44.9, False), (45.0, True), (45.1, True)])
+def test_fairness_threshold_boundary_is_explicit(wait: float, urgent: bool) -> None:
+    decision = AdaptiveScheduler().decide({
+        "north": {"queue": 0, "maxWait": wait}, "south": {"queue": 0, "maxWait": 0},
+        "east": {"queue": 1500, "maxWait": 0}, "west": {"queue": 0, "maxWait": 0},
+    })
+    assert decision["candidateScores"]["NS"]["urgent"] is urgent
+    assert decision["selectedPhase"] == ("NS" if urgent else "EW")
+
+
+@pytest.mark.parametrize(("queue", "duration"), [(0, 8), (10, 16), (100, 30)])
+def test_dynamic_green_duration_uses_documented_clamps(queue: int, duration: float) -> None:
+    decision = AdaptiveScheduler().decide({
+        "north": {"queue": queue, "maxWait": 0}, "south": {"queue": 0, "maxWait": 0},
+        "east": {"queue": 0, "maxWait": 0}, "west": {"queue": 0, "maxWait": 0},
+    })
+    assert decision["selectedPhase"] == "NS"
+    assert decision["greenDuration"] == duration
+
+
+def test_priority_aggregates_axis_queues_and_wait_score() -> None:
+    decision = AdaptiveScheduler().decide({
+        "north": {"queue": 8, "maxWait": 20}, "south": {"queue": 2, "maxWait": 10},
+        "east": {"queue": 3, "maxWait": 0}, "west": {"queue": 1, "maxWait": 0},
+    })
+    assert decision["candidateScores"]["NS"]["queueScore"] == 10
+    assert decision["candidateScores"]["NS"]["waitingScore"] == 4
+    assert decision["candidateScores"]["NS"]["priority"] == 14
+
+
 def test_empty_traffic_is_deterministic() -> None:
     scheduler = AdaptiveScheduler()
     roads = {name: {"queue": 0, "maxWait": 0} for name in ("north", "south", "east", "west")}
@@ -39,6 +69,7 @@ def test_seeded_arrivals_and_full_results_repeat() -> None:
     assert first == second
     assert first["fixed"]["vehiclesDemanded"] == first["adaptive"]["vehiclesDemanded"]
     assert first["arrivalScheduleHash"] == second["arrivalScheduleHash"]
+    assert first["fixed"]["droppedDemand"] == 0
 
 
 def test_urgent_wait_gets_protection_even_with_a_large_competing_queue() -> None:
@@ -80,6 +111,14 @@ def test_empty_and_high_traffic_experiments_have_valid_metrics() -> None:
         assert 0 <= controller["vehiclesServed"] <= controller["vehiclesDemanded"]
         assert controller["maximumQueueLength"] >= 0
         assert controller["averageWaitingTime"] >= 0
+
+
+def test_experiment_wait_excludes_approach_travel_when_green_is_available() -> None:
+    schedule = [(0.0, "north", 1)]
+    result = run_controller("fixed", schedule, 20)
+    assert result["vehiclesServed"] == 1
+    assert result["averageWaitingTime"] == 0
+    assert result["averageTravelTime"] > 3
 
 
 @pytest.mark.parametrize("kwargs", [

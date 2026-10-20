@@ -4,7 +4,7 @@ import { LaneQueue } from './queue.js';
 import { advanceApproachLane, canServeApproach, MIN_VEHICLE_GAP, spawnProgress, STOP_PROGRESS } from './vehicleMovement.js';
 
 function vehicle(direction, progress) {
-  return { direction, progress, state: 'APPROACHING', wait: 0 };
+  return { direction, progress, state: 'APPROACHING', waitingTime: 0, queueEntryTime: null };
 }
 
 test('all four approaches stop at their drawn stop lines without crossing on red', () => {
@@ -41,4 +41,39 @@ test('lane vehicles keep their order and minimum gap as they approach', () => {
   for (let i = 0; i < vehicles.length - 1; i += 1) {
     assert.ok(vehicles[i].progress - vehicles[i + 1].progress >= MIN_VEHICLE_GAP - 1e-9);
   }
+});
+
+test('approach travel does not count as waiting, while stopped time does', () => {
+  const queue = new LaneQueue();
+  const car = vehicle('north', 0);
+  queue.enqueue(car);
+
+  advanceApproachLane(queue, 1, 1);
+  assert.equal(car.state, 'APPROACHING');
+  assert.equal(car.waitingTime, 0);
+  assert.equal(car.queueEntryTime, null);
+
+  for (let index = 0; index < 40 && car.state !== 'QUEUED'; index += 1) {
+    advanceApproachLane(queue, 0.05, 1.05 + index * 0.05);
+  }
+  assert.equal(car.state, 'QUEUED');
+  assert.equal(car.waitingTime, 0);
+  assert.ok(car.queueEntryTime > 1);
+
+  advanceApproachLane(queue, 10, car.queueEntryTime + 10);
+  assert.equal(car.waitingTime, 10);
+});
+
+test('vehicles blocked behind the lead vehicle are marked queued and accumulate wait', () => {
+  const queue = new LaneQueue();
+  const front = { ...vehicle('north', STOP_PROGRESS.north), state: 'QUEUED' };
+  const follower = vehicle('north', STOP_PROGRESS.north - MIN_VEHICLE_GAP);
+  queue.enqueue(front);
+  queue.enqueue(follower);
+
+  advanceApproachLane(queue, 0.05, 1);
+  assert.equal(follower.state, 'QUEUED');
+  assert.equal(follower.waitingTime, 0);
+  advanceApproachLane(queue, 0.05, 1.05);
+  assert.equal(follower.waitingTime, 0.05);
 });

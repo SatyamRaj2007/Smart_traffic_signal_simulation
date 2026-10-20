@@ -26,7 +26,7 @@ PHASE_DIRECTIONS: dict[Phase, tuple[Direction, Direction]] = {"NS": ("north", "s
 class Vehicle:
     id: int
     spawned_at: float
-    queued_at: float
+    queue_entry_time: float
     ready_at: float
     waiting: float = 0.0
 
@@ -70,7 +70,8 @@ def run_controller(
     for second in range(duration):
         while arrival_index < len(schedule) and schedule[arrival_index][0] <= second:
             arrival_time, direction, vehicle_id = schedule[arrival_index]
-            roads[direction].enqueue(Vehicle(vehicle_id, arrival_time, arrival_time, arrival_time + 3.0))
+            queue_entry_time = arrival_time + 3.0
+            roads[direction].enqueue(Vehicle(vehicle_id, arrival_time, queue_entry_time, queue_entry_time))
             arrival_index += 1
 
         if machine.green_phase is not None and green_remaining <= 0:
@@ -79,7 +80,7 @@ def run_controller(
                 pending_green = 20.0
             else:
                 road_state = {
-                    name: {"queue": len(roads[name]), "maxWait": max((second - vehicle.queued_at for vehicle in roads[name]), default=0.0)}
+                    name: {"queue": len(roads[name]), "maxWait": max((vehicle.waiting for vehicle in roads[name]), default=0.0)}
                     for name in DIRECTIONS
                 }
                 decision = scheduler.decide(road_state)
@@ -95,12 +96,6 @@ def run_controller(
         if machine.green_phase is not None and previous_state != machine.state:
             green_remaining = pending_green
 
-        for direction in DIRECTIONS:
-            queue = roads[direction]
-            for vehicle in queue:
-                vehicle.waiting += 1.0
-        metrics.record_queues({direction: len(roads[direction]) for direction in DIRECTIONS}, 1.0)
-
         green = machine.green_phase
         if green:
             for direction in PHASE_DIRECTIONS[green]:
@@ -115,6 +110,11 @@ def run_controller(
             else:
                 still_crossing.append((vehicle, exit_time))
         crossing = still_crossing
+        metrics.record_queues({direction: len(roads[direction]) for direction in DIRECTIONS}, 1.0)
+        for direction in DIRECTIONS:
+            for vehicle in roads[direction]:
+                waiting_interval_start = max(float(second), vehicle.ready_at)
+                vehicle.waiting += max(0.0, second + 1.0 - waiting_interval_start)
         if green:
             green_remaining -= 1.0
 
@@ -122,6 +122,7 @@ def run_controller(
         duration, len(schedule),
         sum(len(roads[d]) for d in DIRECTIONS) + len(crossing), controller,
     )
+    result["droppedDemand"] = 0
     result["decisions"] = decisions
     return result
 

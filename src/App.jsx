@@ -3,7 +3,7 @@ import { api, json } from './api.js';
 import { LaneQueue } from './simulation/queue.js';
 import { assertNoConflictingGreens, isLegalSignalTransition, signalAspectForPhase } from './simulation/signalGraph.js';
 import { advanceApproachLane, canServeApproach, spawnProgress } from './simulation/vehicleMovement.js';
-import { applyDecisionIfCurrent } from './simulation/schedulerDecision.js';
+import { applyDecisionIfCurrent, matchesDecisionCorrelation } from './simulation/schedulerDecision.js';
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
@@ -18,9 +18,11 @@ const PRESETS = {
   asymmetric: { label: 'One-way surge', ns: 6, ew: 30 },
 };
 const CAR_COLORS = ['#147d75', '#e59a47', '#6071a8', '#ce6d61'];
+let nextRunId = 0;
 
 function makeEngine(controller, rates, seed = 12345) {
   return {
+    runId: ++nextRunId, decisionId: 0, latestDecisionInput: null, pendingPhaseTarget: null,
     controller, rates: { ...rates }, seed: seed >>> 0 || 1, time: 0, status: 'ready',
     phase: 'NS_GREEN', phaseRemaining: controller === 'fixed' ? 20 : 8, phaseDuration: controller === 'fixed' ? 20 : 8, greenDuration: controller === 'fixed' ? 20 : 8,
     pendingGreen: 8, targetPhase: 'NS', transitionRemaining: 0, decisionPending: false,
@@ -39,7 +41,7 @@ function random(engine) {
 }
 
 function phaseOf(state) { return state.startsWith('NS_') ? 'NS' : state.startsWith('EW_') ? 'EW' : null; }
-function roadMaxWait(queue) { return queue.values().reduce((max, vehicle) => Math.max(max, vehicle.wait), 0); }
+function roadMaxWait(queue) { let maxWait = 0; queue.forEach(vehicle => { maxWait = Math.max(maxWait, vehicle.waitingTime || 0); }); return maxWait; }
 function queueCounts(engine) { return Object.fromEntries(DIRECTIONS.map(direction => [direction, engine.roads[direction].size])); }
 function trafficState(engine) { return { ...Object.fromEntries(DIRECTIONS.map(direction => [direction, { queue: engine.roads[direction].size, maxWait: roadMaxWait(engine.roads[direction]) }])), lastServed: engine.lastServed }; }
 function safeTransition(engine, target) {
@@ -68,13 +70,18 @@ function phaseDecision(engine, isCurrent = () => true) {
     return Promise.resolve();
   }
   engine.decisionPending = true;
-  return api('/api/schedule', json('POST', trafficState(engine))).then(decision => {
-    applyDecisionIfCurrent(decision, isCurrent, validDecision => {
+  const decisionId = ++engine.decisionId;
+  const decisionInput = trafficState(engine);
+  engine.latestDecisionInput = decisionInput;
+  return api('/api/schedule', json('POST', { ...decisionInput, runId: engine.runId, decisionId })).then(decision => {
+    const applied = applyDecisionIfCurrent(decision, () => isCurrent() && matchesDecisionCorrelation(decision, engine.runId, decisionId), validDecision => {
       engine.latestDecision = validDecision;
       engine.lastServed = validDecision.selectedPhase;
       engine.pendingGreen = validDecision.greenDuration;
-      safeTransition(engine, validDecision.selectedPhase);
+      if (engine.status === 'running') safeTransition(engine, validDecision.selectedPhase);
+      else engine.pendingPhaseTarget = validDecision.selectedPhase;
     });
+    if (!applied && isCurrent()) throw new Error('Scheduler response did not match the active simulation decision.');
   }).finally(() => { engine.decisionPending = false; });
 }
 
@@ -89,7 +96,7 @@ function step(engine, dt) {
       const activeVehicles = engine.crossing.length + DIRECTIONS.reduce((count, lane) => count + engine.roads[lane].size, 0);
       if (activeVehicles < 500) {
         const id = engine.nextId++;
-        engine.roads[direction].enqueue({ id, direction, progress: spawnProgress(engine.roads[direction]), spawnTime: engine.time, wait: 0, state: 'APPROACHING', color: CAR_COLORS[(id + DIRECTIONS.indexOf(direction)) % CAR_COLORS.length] });
+        engine.roads[direction].enqueue({ id, direction, progress: spawnProgress(engine.roads[direction]), spawnTime: engine.time, queueEntryTime: null, intersectionEntryTime: null, exitTime: null, waitingTime: 0, state: 'APPROACHING', color: CAR_COLORS[(id + DIRECTIONS.indexOf(direction)) % CAR_COLORS.length] });
         engine.arrivalCount += 1;
       } else {
         engine.droppedDemand += 1;
@@ -99,7 +106,7 @@ function step(engine, dt) {
   }
 
   for (const direction of DIRECTIONS) {
-    advanceApproachLane(engine.roads[direction], dt);
+    advanceApproachLane(engine.roads[direction], dt, engine.time);
   }
 
   if (engine.phase.endsWith('_GREEN')) {
@@ -110,6 +117,7 @@ function step(engine, dt) {
       if (vehicle && canServeApproach(direction, greenPhase, vehicle.progress) && engine.time >= engine.nextService[direction]) {
         queue.dequeue();
         vehicle.state = 'CROSSING';
+        vehicle.intersectionEntryTime = engine.time;
         vehicle.progress = 0.49;
         engine.crossing.push(vehicle);
         engine.nextService[direction] = engine.time + 2.4;
@@ -131,14 +139,15 @@ function step(engine, dt) {
     vehicle.progress += 0.19 * dt;
     if (vehicle.progress >= 1) {
       engine.served += 1;
-      engine.completedWait += vehicle.wait;
-      engine.completedTravel += engine.time - vehicle.spawnTime;
+      vehicle.exitTime = engine.time;
+      engine.completedWait += vehicle.waitingTime;
+      engine.completedTravel += vehicle.exitTime - vehicle.spawnTime;
     } else keepCrossing.push(vehicle);
   }
   engine.crossing = keepCrossing;
   const queues = queueCounts(engine);
   const totalQueue = Object.values(queues).reduce((sum, value) => sum + value, 0);
-  engine.maxQueue = Math.max(engine.maxQueue, ...Object.values(queues));
+  engine.maxQueue = Math.max(engine.maxQueue, totalQueue);
   engine.queueIntegral += totalQueue * dt;
   engine.sampleTime += dt;
   return engine;
@@ -155,7 +164,7 @@ function makeSnapshot(engine) {
     throughput: engine.time ? engine.served * 60 / engine.time : 0,
     droppedDemand: engine.droppedDemand,
     vehicles: [...DIRECTIONS.flatMap(direction => engine.roads[direction].values()), ...engine.crossing],
-    decision: engine.latestDecision, decisionPending: engine.decisionPending, status: engine.status, warning: engine.warning,
+    decision: engine.latestDecision, decisionInput: engine.latestDecisionInput, decisionPending: engine.decisionPending, status: engine.status, warning: engine.warning,
   };
 }
 
@@ -326,6 +335,10 @@ export default function App() {
       updateSnapshot(engine); return;
     }
     engine.warning = '';
+    if (engine.pendingPhaseTarget && !engine.decisionPending) {
+      safeTransition(engine, engine.pendingPhaseTarget);
+      engine.pendingPhaseTarget = null;
+    }
     if (engine.status === 'ready' || engine.status === 'error') engine.status = 'running';
     runningRef.current = true; engine.status = 'running'; setSnapshot(makeSnapshot(engine));
   };

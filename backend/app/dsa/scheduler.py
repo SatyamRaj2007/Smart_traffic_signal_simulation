@@ -14,6 +14,7 @@ RoadState = dict[str, dict[str, float | int]]
 class SchedulerConfig:
     wait_weight: float = 0.2
     max_wait_threshold: float = 45.0
+    fairness_bonus: float = 1.0
     min_green: float = 8.0
     max_green: float = 30.0
     base_green: float = 8.0
@@ -23,6 +24,7 @@ class SchedulerConfig:
         values = {
             "wait_weight": self.wait_weight,
             "max_wait_threshold": self.max_wait_threshold,
+            "fairness_bonus": self.fairness_bonus,
             "min_green": self.min_green,
             "max_green": self.max_green,
             "base_green": self.base_green,
@@ -30,7 +32,7 @@ class SchedulerConfig:
         }
         if any(not isfinite(value) for value in values.values()):
             raise ValueError("scheduler configuration values must be finite")
-        if self.wait_weight < 0 or self.queue_time_factor < 0:
+        if self.wait_weight < 0 or self.queue_time_factor < 0 or self.fairness_bonus < 0:
             raise ValueError("scheduler weights cannot be negative")
         if self.max_wait_threshold <= 0:
             raise ValueError("max_wait_threshold must be positive")
@@ -66,14 +68,14 @@ class AdaptiveScheduler:
         if len(urgent_phases) == 1:
             urgent_phase = urgent_phases[0]
             other_phase = "EW" if urgent_phase == "NS" else "NS"
-            required_priority = scores[other_phase]["priority"] + 1.0
+            required_priority = scores[other_phase]["priority"] + self.config.fairness_bonus
             scores[urgent_phase]["starvationBoost"] = max(0.0, required_priority - scores[urgent_phase]["priority"])
         elif len(urgent_phases) == 2:
             # If both phases are overdue, prioritize the oldest wait so the threshold
             # continues to provide a bounded fairness signal under extreme demand.
             older_phase = max(urgent_phases, key=lambda phase: scores[phase]["maxWait"])
             other_phase = "EW" if older_phase == "NS" else "NS"
-            required_priority = scores[other_phase]["priority"] + 1.0
+            required_priority = scores[other_phase]["priority"] + self.config.fairness_bonus
             scores[older_phase]["starvationBoost"] = max(0.0, required_priority - scores[older_phase]["priority"])
 
         for phase in ("NS", "EW"):

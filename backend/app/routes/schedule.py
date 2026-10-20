@@ -17,4 +17,4 @@ def schedule(payload: ScheduleRequest) -> dict[str, object]:
     roads = {name: getattr(payload, name).model_dump() for name in ("north", "south", "east", "west")}
     scheduler = AdaptiveScheduler()
     scheduler.last_served = payload.lastServed
-    return scheduler.decide(roads)
+    return {**scheduler.decide(roads), "runId": payload.runId, "decisionId": payload.decisionId}

@@ -11,7 +11,7 @@ def test_metrics_are_time_weighted_and_average_completed_vehicles() -> None:
     metrics.record_completion(2, 5)
     result = metrics.result(duration=60, demanded=4, remaining=2, controller="adaptive")
     assert result["averageQueueLength"] == 2.333
-    assert result["maximumQueueLength"] == 2
+    assert result["maximumQueueLength"] == 3
     assert result["averageWaitingTime"] == 3
     assert result["averageTravelTime"] == 6
     assert result["throughputPerMinute"] == 2

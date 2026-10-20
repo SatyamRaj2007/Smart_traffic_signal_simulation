@@ -21,6 +21,9 @@ class ScheduleRequest(BaseModel):
     east: RoadTraffic
     west: RoadTraffic
     lastServed: Literal["NS", "EW"] | None = None
+    currentPhase: Literal["NS_GREEN", "NS_YELLOW", "ALL_RED_TO_EW", "EW_GREEN", "EW_YELLOW", "ALL_RED_TO_NS"] | None = None
+    runId: int = Field(default=0, ge=0, le=2**53 - 1)
+    decisionId: int = Field(default=0, ge=0, le=2**53 - 1)
 
 
 class ExperimentRequest(BaseModel):

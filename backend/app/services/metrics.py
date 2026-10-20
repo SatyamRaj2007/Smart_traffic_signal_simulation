@@ -18,8 +18,9 @@ class MetricsAccumulator:
     def record_queues(self, queues: dict[str, int], seconds: float) -> None:
         if not isfinite(seconds) or seconds < 0 or any(not isfinite(size) or size < 0 for size in queues.values()):
             raise ValueError("queue metrics must be non-negative")
-        self.maximum_queue_length = max(self.maximum_queue_length, *queues.values(), 0)
-        self.queue_vehicle_seconds += sum(queues.values()) * seconds
+        total_queue = sum(queues.values())
+        self.maximum_queue_length = max(self.maximum_queue_length, total_queue)
+        self.queue_vehicle_seconds += total_queue * seconds
         self.queue_sample_seconds += seconds
 
     def record_completion(self, waiting_time: float, travel_time: float) -> None:

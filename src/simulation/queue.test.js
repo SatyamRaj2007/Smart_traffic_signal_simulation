@@ -8,6 +8,7 @@ test('lane queue is FIFO and supports constant-time head operations', () => {
   assert.equal(queue.front(), 'A');
   assert.equal(queue.dequeue(), 'A');
   assert.equal(queue.front(), 'B');
+  assert.equal(queue.rear(), 'C');
   assert.equal(queue.size, 2);
 });
 

@@ -11,24 +11,25 @@ const LANE_SPEED = 0.16;
 const STOP_EPSILON = 1e-6;
 
 export function spawnProgress(queue) {
-  const vehicles = queue.values();
-  const rear = vehicles[vehicles.length - 1];
+  const rear = queue.rear();
   return rear ? Math.min(0, rear.progress - MIN_VEHICLE_GAP) : 0;
 }
 
-export function advanceApproachLane(queue, dt) {
+export function advanceApproachLane(queue, dt, simulationTime = 0) {
   let ahead = Infinity;
-  for (const vehicle of queue.values()) {
+  queue.forEach(vehicle => {
+    const wasQueued = vehicle.state === 'QUEUED';
     const previous = vehicle.progress;
     const target = Math.min(STOP_PROGRESS[vehicle.direction], previous + LANE_SPEED * dt);
     const constrained = Math.min(target, ahead - MIN_VEHICLE_GAP);
     vehicle.progress = Math.max(previous, constrained);
     ahead = vehicle.progress;
-    vehicle.state = vehicle.progress >= STOP_PROGRESS[vehicle.direction] - STOP_EPSILON
-      ? 'QUEUED'
-      : 'APPROACHING';
-    vehicle.wait += dt;
-  }
+    const atStopLine = vehicle.progress >= STOP_PROGRESS[vehicle.direction] - STOP_EPSILON;
+    const stoppedBehindVehicle = target - constrained > STOP_EPSILON && constrained <= previous + STOP_EPSILON;
+    vehicle.state = atStopLine || stoppedBehindVehicle ? 'QUEUED' : 'APPROACHING';
+    if (vehicle.state === 'QUEUED' && vehicle.queueEntryTime == null) vehicle.queueEntryTime = simulationTime;
+    if (wasQueued && vehicle.state === 'QUEUED') vehicle.waitingTime = (vehicle.waitingTime || 0) + dt;
+  });
 }
 
 export function canServeApproach(direction, greenPhase, progress) {
