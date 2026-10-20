@@ -2,6 +2,7 @@
 node_modules/
 dist/
 coverage/
+.vercel/
 
 # Python virtual environments and generated files
 .venv/

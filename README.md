@@ -118,7 +118,7 @@ Here, `V` is the active vehicle count and `P` is the number of candidate phases.
 
 ## Deployment
 
-The repository includes a Vercel configuration for the frontend and API entry point, plus a Render service definition for hosting the API separately. For a split deployment, publish the Vite app as a static site, deploy the FastAPI service, and set the frontend build variable `VITE_API_URL` to the API's HTTPS origin. Add the deployed frontend origin to the API CORS allowlist in `backend/main.py` if it is not a `*.vercel.app` URL. Deployment still requires configuring the hosting projects and domains.
+The repository includes a Vercel configuration for a single-origin deployment: Vite publishes `dist/`, and `api/[...path].py` routes `/api/*` requests to FastAPI. It also includes a Render service definition for hosting the API separately. For a split deployment, publish the Vite app as a static site, deploy the FastAPI service, and set the frontend build variable `VITE_API_URL` to the API's HTTPS origin. Add the deployed frontend origin to the API CORS allowlist in `backend/main.py` if it is not a `*.vercel.app` URL. Deployment still requires connecting the repository to a Vercel project and configuring any custom domains.
 
 The API stores no accounts or experiment history. Keep real secrets out of committed files; `.env.example` is a placeholder for local or deployment configuration.
 
